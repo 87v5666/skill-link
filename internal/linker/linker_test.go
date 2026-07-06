@@ -65,7 +65,9 @@ func TestLink_AlreadyLinked(t *testing.T) {
 	os.MkdirAll(repoSkillDir, 0755)
 
 	l := NewLinker(tmpDir)
-	l.Link("react-component", repoSkillDir)
+if err := l.Link("react-component", repoSkillDir); err != nil {
+		t.Fatal(err)
+	}
 
 	// 重复链接应返回错误
 	err := l.Link("react-component", repoSkillDir)
@@ -114,7 +116,10 @@ func TestLink_MultipleSkills(t *testing.T) {
 		}
 	}
 
-	linked, _ := l.ListLinked()
+	linked, err := l.ListLinked()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(linked) != 3 {
 		t.Fatalf("期望 3 个，实际: %d", len(linked))
 	}
