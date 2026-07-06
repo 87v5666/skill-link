@@ -8,7 +8,7 @@ import (
 
 func TestLoad_DefaultConfig(t *testing.T) {
 	// 确保没有配置文件干扰
-	os.Unsetenv("HOME")
+	t.Setenv("HOME", "")
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load() 不应返回错误，got: %v", err)
