@@ -11,6 +11,7 @@ import (
 	"skill-management/internal/config"
 	"skill-management/internal/linker"
 	"skill-management/internal/repo"
+	"skill-management/internal/tui"
 )
 
 var rootCmd = &cobra.Command{
@@ -178,7 +179,7 @@ var tuiCmd = &cobra.Command{
 	Use:   "tui",
 	Short: "启动 TUI 交互界面浏览/选择 skill",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return fmt.Errorf("TUI 尚未实现，将在后续版本中提供")
+		return tui.Start()
 	},
 }
 
