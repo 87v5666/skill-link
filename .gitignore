@@ -1,0 +1,5 @@
+skill-mgr
+/skill-mgr
+*.exe
+*.test
+*.out
