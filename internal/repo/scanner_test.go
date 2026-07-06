@@ -90,12 +90,13 @@ func TestScanner_GetSkill(t *testing.T) {
 func TestScanner_Cache(t *testing.T) {
 	repoDir := createTestRepo(t)
 	s := NewScanner(repoDir)
+	s.SetCacheDir(t.TempDir()) // 隔离缓存目录，不写入真实配置目录
 
 	if err := s.BuildCache(); err != nil {
 		t.Fatalf("BuildCache() 失败: %v", err)
 	}
 
-	skills, err := CachedSkills()
+	skills, err := CachedSkills(s.cacheDir)
 	if err != nil {
 		t.Fatalf("CachedSkills() 失败: %v", err)
 	}

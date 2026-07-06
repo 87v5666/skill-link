@@ -12,7 +12,10 @@ import (
 
 // Scanner 扫描技能仓库目录
 type Scanner struct {
-	repoPath string
+	repoPath   string
+	cacheDir   string     // 可选；覆盖默认缓存目录（用于测试隔离）
+	categories []Category // 内存缓存
+	scanned    bool       // 是否已扫描
 }
 
 // NewScanner 创建 Scanner 实例
@@ -20,8 +23,21 @@ func NewScanner(repoPath string) *Scanner {
 	return &Scanner{repoPath: repoPath}
 }
 
-// Scan 扫描仓库目录，返回分类树
-func (s *Scanner) Scan() ([]Category, error) {
+// SetCacheDir 覆盖默认缓存目录（用于测试隔离）
+func (s *Scanner) SetCacheDir(dir string) {
+	s.cacheDir = dir
+}
+
+// cachePath 返回缓存文件路径
+func (s *Scanner) cachePath() string {
+	if s.cacheDir != "" {
+		return filepath.Join(s.cacheDir, "cache.json")
+	}
+	return filepath.Join(config.ConfigDir(), "cache.json")
+}
+
+// scanDisk 扫描仓库目录，返回分类树（实际的磁盘 I/O）
+func (s *Scanner) scanDisk() ([]Category, error) {
 	entries, err := os.ReadDir(s.repoPath)
 	if err != nil {
 		return nil, fmt.Errorf("读取仓库目录失败: %w", err)
@@ -59,9 +75,28 @@ func (s *Scanner) Scan() ([]Category, error) {
 	return categories, nil
 }
 
+// getCategories 返回分类树（带内存缓存，避免重复磁盘 I/O）
+func (s *Scanner) getCategories() ([]Category, error) {
+	if s.scanned {
+		return s.categories, nil
+	}
+	cats, err := s.scanDisk()
+	if err != nil {
+		return nil, err
+	}
+	s.categories = cats
+	s.scanned = true
+	return s.categories, nil
+}
+
+// Scan 扫描仓库目录，返回分类树
+func (s *Scanner) Scan() ([]Category, error) {
+	return s.getCategories()
+}
+
 // GetSkill 按名称查找 skill（不区分分类）
 func (s *Scanner) GetSkill(name string) (*Skill, error) {
-	categories, err := s.Scan()
+	categories, err := s.getCategories()
 	if err != nil {
 		return nil, err
 	}
@@ -81,17 +116,20 @@ func (s *Scanner) BuildCache() error {
 	if err != nil {
 		return err
 	}
-	cachePath := filepath.Join(config.ConfigDir(), "cache.json")
-	if err := os.MkdirAll(config.ConfigDir(), 0755); err != nil {
+	cachePath := s.cachePath()
+	if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
 		return err
 	}
-	data, _ := json.MarshalIndent(categories, "", "  ")
+	data, err := json.MarshalIndent(categories, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化缓存失败: %w", err)
+	}
 	return os.WriteFile(cachePath, data, 0644)
 }
 
-// CachedSkills 从缓存读取所有 skill（扁平列表）
-func CachedSkills() ([]Skill, error) {
-	cachePath := filepath.Join(config.ConfigDir(), "cache.json")
+// CachedSkills 从指定缓存目录读取所有 skill（扁平列表）
+func CachedSkills(cacheDir string) ([]Skill, error) {
+	cachePath := filepath.Join(cacheDir, "cache.json")
 	data, err := os.ReadFile(cachePath)
 	if err != nil {
 		return nil, fmt.Errorf("读取缓存失败: %w", err)
