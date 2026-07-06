@@ -64,7 +64,10 @@ var infoCmd = &cobra.Command{
 			return err
 		}
 		// 读取 SKILL.md
-		data, _ := os.ReadFile(filepath.Join(skill.Path, "SKILL.md"))
+		data, err := os.ReadFile(filepath.Join(skill.Path, "SKILL.md"))
+		if err != nil {
+			return fmt.Errorf("读取 SKILL.md 失败: %w", err)
+		}
 		fmt.Printf("名称: %s\n分类: %s\n路径: %s\n\n%s\n",
 			skill.Name, skill.Category, skill.Path, string(data))
 		return nil
@@ -173,7 +176,7 @@ var tuiCmd = &cobra.Command{
 	Use:   "tui",
 	Short: "启动 TUI 交互界面浏览/选择 skill",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return fmt.Errorf("TUI 尚未实现，请使用 skill-mgr tui 命令（将在后续版本中提供）")
+		return fmt.Errorf("TUI 尚未实现，将在后续版本中提供")
 	},
 }
 
