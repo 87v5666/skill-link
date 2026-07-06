@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"skill-management/internal/config"
@@ -180,6 +182,118 @@ var tuiCmd = &cobra.Command{
 	},
 }
 
+var agentCmd = &cobra.Command{
+	Use:    "agent",
+	Short:  "JSON 输出模式（供 OpenCode agent 内部调用）",
+	Hidden: true,
+}
+
+var agentSearchCmd = &cobra.Command{
+	Use:   "search <query>",
+	Short: "搜索 skill 返回 JSON",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return printJSONError(err)
+		}
+		s := repo.NewScanner(cfg.RepoPath)
+		categories, err := s.Scan()
+		if err != nil {
+			return printJSONError(err)
+		}
+		query := strings.ToLower(args[0])
+		var results []repo.Skill
+		for _, cat := range categories {
+			for _, sk := range cat.Skills {
+				if strings.Contains(strings.ToLower(sk.Name), query) ||
+					strings.Contains(strings.ToLower(sk.Description), query) {
+					results = append(results, sk)
+				}
+			}
+		}
+		if results == nil {
+			results = []repo.Skill{}
+		}
+		return printJSON(map[string]any{"results": results})
+	},
+}
+
+var agentLinkCmd = &cobra.Command{
+	Use:   "link <name>",
+	Short: "链接 skill 返回 JSON",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		projectRoot, err := config.FindProjectRoot()
+		if err != nil {
+			return printJSONError(err)
+		}
+		cfg, err := config.Load()
+		if err != nil {
+			return printJSONError(err)
+		}
+		s := repo.NewScanner(cfg.RepoPath)
+		skill, err := s.GetSkill(args[0])
+		if err != nil {
+			return printJSONError(err)
+		}
+		l := linker.NewLinker(projectRoot)
+		if err := l.Link(skill.Name, skill.Path); err != nil {
+			return printJSONError(err)
+		}
+		return printJSON(map[string]any{"status": "ok", "linked": skill.Name})
+	},
+}
+
+var agentLinkedCmd = &cobra.Command{
+	Use:   "linked",
+	Short: "列出已链接 skill 返回 JSON",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		projectRoot, err := config.FindProjectRoot()
+		if err != nil {
+			return printJSONError(err)
+		}
+		l := linker.NewLinker(projectRoot)
+		linked, err := l.ListLinked()
+		if err != nil {
+			return printJSONError(err)
+		}
+		return printJSON(map[string]any{"linked": linked})
+	},
+}
+
+var agentRemoveCmd = &cobra.Command{
+	Use:   "remove <name>",
+	Short: "移除 skill 返回 JSON",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		projectRoot, err := config.FindProjectRoot()
+		if err != nil {
+			return printJSONError(err)
+		}
+		l := linker.NewLinker(projectRoot)
+		if err := l.Unlink(args[0]); err != nil {
+			return printJSONError(err)
+		}
+		return printJSON(map[string]any{"status": "ok", "removed": args[0]})
+	},
+}
+
+func printJSON(v any) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(data))
+	return nil
+}
+
+func printJSONError(err error) error {
+	data, _ := json.Marshal(map[string]string{"error": err.Error()})
+	fmt.Println(string(data))
+	return nil // 返回 nil 以免 cobra 打印两次错误
+}
+
 func init() {
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(infoCmd)
@@ -189,6 +303,8 @@ func init() {
 	rootCmd.AddCommand(pathCmd)
 	rootCmd.AddCommand(tuiCmd)
 	pathCmd.AddCommand(pathSetCmd)
+	agentCmd.AddCommand(agentSearchCmd, agentLinkCmd, agentLinkedCmd, agentRemoveCmd)
+	rootCmd.AddCommand(agentCmd)
 }
 
 func main() {
