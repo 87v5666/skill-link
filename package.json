@@ -1,0 +1,31 @@
+{
+  "name": "skill-mgr",
+  "version": "0.1.0",
+  "description": "OpenCode skill 链接管理工具 — 从中央仓库浏览、选择、链接 skill",
+  "bin": {
+    "skill-mgr": "./bin/skill-mgr"
+  },
+  "scripts": {
+    "postinstall": "node scripts/install.js",
+    "uninstall": "node scripts/uninstall.js",
+    "preuninstall": "node scripts/uninstall.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YOUR_USER/skill-management.git"
+  },
+  "keywords": ["opencode", "skill", "cli", "tui"],
+  "author": "",
+  "license": "MIT",
+  "files": [
+    "bin/",
+    "scripts/",
+    "package.json",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=14"
+  },
+  "os": ["darwin", "linux", "win32"],
+  "cpu": ["x64", "arm64"]
+}

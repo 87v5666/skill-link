@@ -3,3 +3,7 @@ skill-mgr
 *.exe
 *.test
 *.out
+
+# npm
+node_modules/
+bin/
