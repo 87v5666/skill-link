@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"skill-management/internal/config"
@@ -25,10 +26,10 @@ type model struct {
 	linker     *linker.Linker
 
 	// 浏览视图状态
-	cursor     int          // 当前选中项索引
-	panelFocus int          // 0=分类面板, 1=skill 面板
-	catCursor  int          // 分类面板光标
-	selected   map[int]bool // 已选 skill 索引
+	cursorName string          // 当前选中 skill 名称
+	panelFocus int             // 0=分类面板, 1=skill 面板
+	catCursor  int             // 分类面板光标
+	selected   map[string]bool // 已选 skill 名称
 
 	// 预览视图状态
 	previewSkill   *repo.Skill
@@ -81,8 +82,11 @@ func Start() error {
 		categories: categories,
 		skills:     allSkills,
 		linker:     l,
-		selected:   make(map[int]bool),
+		selected:   make(map[string]bool),
 		panelFocus: 1, // 默认聚焦 skill 列表
+	}
+	if len(allSkills) > 0 {
+		m.cursorName = allSkills[0].Name
 	}
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
@@ -114,8 +118,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "up", "k":
 			if m.view == browseView && m.panelFocus == 1 {
-				if m.cursor > 0 {
-					m.cursor--
+				filtered := m.filteredSkills()
+				for i, sk := range filtered {
+					if sk.Name == m.cursorName && i > 0 {
+						m.cursorName = filtered[i-1].Name
+						break
+					}
 				}
 			}
 			if m.view == browseView && m.panelFocus == 0 {
@@ -126,8 +134,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "down", "j":
 			if m.view == browseView && m.panelFocus == 1 {
-				if m.cursor < len(m.skills)-1 {
-					m.cursor++
+				filtered := m.filteredSkills()
+				for i, sk := range filtered {
+					if sk.Name == m.cursorName && i < len(filtered)-1 {
+						m.cursorName = filtered[i+1].Name
+						break
+					}
 				}
 			}
 			if m.view == browseView && m.panelFocus == 0 {
@@ -138,13 +150,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case " ":
 			if m.view == browseView && m.panelFocus == 1 {
-				m.selected[m.cursor] = !m.selected[m.cursor]
+				m.selected[m.cursorName] = !m.selected[m.cursorName]
 			}
 
 		case "enter":
 			if m.view == browseView && m.panelFocus == 1 {
 				// 进入预览
-				skill := m.skills[m.cursor]
+				var skill repo.Skill
+				for _, sk := range m.skills {
+					if sk.Name == m.cursorName {
+						skill = sk
+						break
+					}
+				}
 				content, _ := os.ReadFile(filepath.Join(skill.Path, "SKILL.md"))
 				m.previewSkill = &skill
 				m.previewContent = string(content)
@@ -156,8 +174,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if err != nil {
 						m.err = err
 					} else {
-						m.skills[m.cursor].Linked = true
-						m.selected[m.cursor] = false
+						for i, sk := range m.skills {
+							if sk.Name == m.previewSkill.Name {
+								m.skills[i].Linked = true
+								break
+							}
+						}
+						m.selected[m.previewSkill.Name] = false
 					}
 				}
 				m.view = browseView
@@ -166,20 +189,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "l":
 			// 直接链接选中的项
 			if m.view == browseView {
-				for idx := range m.selected {
-					skill := m.skills[idx]
-					m.linker.Link(skill.Name, skill.Path)
-					m.skills[idx].Linked = true
+				for name := range m.selected {
+					for i, sk := range m.skills {
+						if sk.Name == name {
+							m.linker.Link(sk.Name, sk.Path)
+							m.skills[i].Linked = true
+							break
+						}
+					}
 				}
-				m.selected = make(map[int]bool)
+				m.selected = make(map[string]bool)
 			}
 
 		case "d":
 			// 取消链接光标处的 skill
 			if m.view == browseView && m.panelFocus == 1 {
-				skill := m.skills[m.cursor]
-				m.linker.Unlink(skill.Name)
-				m.skills[m.cursor].Linked = false
+				for i, sk := range m.skills {
+					if sk.Name == m.cursorName {
+						m.linker.Unlink(sk.Name)
+						m.skills[i].Linked = false
+						break
+					}
+				}
 			}
 
 		case "esc":
@@ -201,9 +232,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.searching && len(msg.String()) == 1 {
 				m.searchQuery += msg.String()
 				// 简单的过滤搜索
-				for i, sk := range m.skills {
-					if contains(sk.Name, m.searchQuery) {
-						m.cursor = i
+				for _, sk := range m.skills {
+					if strings.Contains(strings.ToLower(sk.Name), strings.ToLower(m.searchQuery)) {
+						m.cursorName = sk.Name
 						break
 					}
 				}
@@ -213,7 +244,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func contains(s, substr string) bool {
-	return len(substr) > 0 && len(s) >= len(substr) &&
-		(s[:len(substr)] == substr || len(s) > len(substr) && contains(s[1:], substr))
+func (m model) filteredSkills() []repo.Skill {
+	filtered := m.skills
+	if m.panelFocus == 0 && m.catCursor < len(m.categories) {
+		catName := m.categories[m.catCursor].Name
+		var fs []repo.Skill
+		for _, sk := range m.skills {
+			if sk.Category == catName {
+				fs = append(fs, sk)
+			}
+		}
+		if len(fs) > 0 {
+			filtered = fs
+		}
+	}
+	return filtered
 }

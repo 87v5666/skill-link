@@ -6,17 +6,15 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"skill-management/internal/config"
-	"skill-management/internal/repo"
 )
 
 var (
-	titleStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7C3AED"))
-	activeStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Background(lipgloss.Color("#7C3AED"))
-	linkedStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981"))
-	normalStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#E2E8F0"))
-	mutedStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B"))
-	selectedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FBBF24"))
-	panelStyle    = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1)
+	titleStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7C3AED"))
+	activeStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Background(lipgloss.Color("#7C3AED"))
+	linkedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981"))
+	normalStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#E2E8F0"))
+	mutedStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#64748B"))
+	panelStyle  = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1)
 )
 
 func (m model) renderBrowseView() string {
@@ -57,32 +55,20 @@ func (m model) renderBrowseView() string {
 	}
 
 	// 过滤：按选中分类
-	filteredSkills := m.skills
-	if m.panelFocus == 0 && m.catCursor < len(m.categories) {
-		catName := m.categories[m.catCursor].Name
-		var fs []repo.Skill
-		for _, sk := range m.skills {
-			if sk.Category == catName {
-				fs = append(fs, sk)
-			}
-		}
-		if len(fs) > 0 {
-			filteredSkills = fs
-		}
-	}
+	filteredSkills := m.filteredSkills()
 
 	var skillLines []string
 	skillLines = append(skillLines, mutedStyle.Render(fmt.Sprintf("Skills (%d)", len(filteredSkills))))
-	for i, sk := range filteredSkills {
+	for _, sk := range filteredSkills {
 		prefix := "  "
 		if sk.Linked {
 			prefix = "★ " + linkedStyle.Render("●")
 		}
-		if m.selected[i] {
+		if m.selected[sk.Name] {
 			prefix = "✓ "
 		}
 		line := fmt.Sprintf("%s %s", prefix, sk.Name)
-		if m.panelFocus == 1 && i == m.cursor {
+		if m.panelFocus == 1 && sk.Name == m.cursorName {
 			line = activeStyle.Render(fmt.Sprintf("%s %s", prefix, sk.Name))
 		} else if sk.Linked {
 			line = linkedStyle.Render(fmt.Sprintf("%s %s", prefix, sk.Name))
