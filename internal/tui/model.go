@@ -262,7 +262,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "enter":
-			if m.view == browseView && m.panelFocus == 0 && m.catCursor == len(m.customCatNames) {
+			if m.view == browseView && m.panelFocus == 0 && m.catCursor == len(m.customCatNames)+1 {
 				m.inputMode = addingCategory
 				m.inputBuffer = ""
 				m.inputPrompt = "输入分类名称: "

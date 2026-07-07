@@ -56,7 +56,7 @@ func (m model) renderBrowseView() string {
 
 	// "新建分类" action
 	newLabel := "  ＋ 新建分类"
-	if m.panelFocus == 0 && m.catCursor == len(m.customCatNames) {
+	if m.panelFocus == 0 && m.catCursor == len(m.customCatNames)+1 {
 		catLines = append(catLines, activeStyle.Render(newLabel))
 	} else {
 		catLines = append(catLines, mutedStyle.Render(newLabel))
@@ -106,28 +106,10 @@ func (m model) renderBrowseView() string {
 		strings.Join(skillLines, "\n"),
 	)
 
-	// 底部帮助 + version
-	footer := mutedStyle.Render(
-		" [Tab]切换  [↑↓]导航  [Space]选  [Enter]预览  [L]链接  [D]取消  [/]搜索  [N]分类  [E]备注  [A]分组  [Q]退出",
-	)
-	if m.version != "dev" {
-		footer += mutedStyle.Render(fmt.Sprintf("  v%s", m.version))
-	}
-
-	// 错误显示
-	if m.err != nil {
-		footer += "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render(
-			fmt.Sprintf("错误: %v", m.err))
-	}
-
-	result := fmt.Sprintf("%s\n%s\n%s",
-		header,
-		lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel),
-		footer,
-	)
-
-	// Input overlay for text entry
+	// Footer — either normal shortcuts or input prompt
+	var footer string
 	if m.inputMode != noInput {
+		// Input mode: show prompt instead of shortcuts
 		var inputContent string
 		switch m.inputMode {
 		case addingCategory, editingNote:
@@ -136,9 +118,7 @@ func (m model) renderBrowseView() string {
 			catNames := m.dataStore.SortedCategoryNames()
 			var listLines []string
 			listLines = append(listLines, " 选择分类（Enter确认）:")
-			for _, n := range catNames {
-				marker := "  "
-				// Check if skill is in this category
+			for i, n := range catNames {
 				inCat := false
 				for _, sn := range m.dataStore.Categories[n] {
 					if sn == m.cursorName {
@@ -150,36 +130,41 @@ func (m model) renderBrowseView() string {
 				if inCat {
 					status = "[-]"
 				}
-				marker = fmt.Sprintf("  %s %s", status, n)
+				var marker string
+				if i == m.catSelectCursor {
+					marker = fmt.Sprintf("▸ %s %s", status, n)
+				} else {
+					marker = fmt.Sprintf("  %s %s", status, n)
+				}
 				listLines = append(listLines, marker)
-			}
-			// Highlight selected line
-			if m.catSelectCursor >= 0 && m.catSelectCursor < len(catNames) {
-				selName := catNames[m.catSelectCursor]
-				inCat := false
-				for _, sn := range m.dataStore.Categories[selName] {
-					if sn == m.cursorName {
-						inCat = true
-						break
-					}
-				}
-				status := "[+]"
-				if inCat {
-					status = "[-]"
-				}
-				listLines[m.catSelectCursor+1] = fmt.Sprintf("▸ %s %s", status, selName)
 			}
 			inputContent = strings.Join(listLines, "\n")
 		}
-		// Overlay
-		overlay := "\n" + lipgloss.NewStyle().
+		footer = lipgloss.NewStyle().
 			Background(lipgloss.Color("#333333")).
 			Padding(0, 1).
 			Render(inputContent)
-		result += overlay
+	} else {
+		// Normal shortcuts
+		footer = mutedStyle.Render(
+			" [Tab]切换  [↑↓]导航  [Space]选  [Enter]预览  [L]链接  [D]取消  [/]搜索  [N]分类  [E]备注  [A]分组  [Q]退出",
+		)
+		if m.version != "dev" {
+			footer += mutedStyle.Render(fmt.Sprintf("  v%s", m.version))
+		}
 	}
 
-	return result
+	// 错误显示 (always shown below footer)
+	if m.err != nil {
+		footer += "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render(
+			fmt.Sprintf("错误: %v", m.err))
+	}
+
+	return fmt.Sprintf("%s\n%s\n%s",
+		header,
+		lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel),
+		footer,
+	)
 }
 
 func (m model) View() string {
