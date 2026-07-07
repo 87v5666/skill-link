@@ -6,4 +6,4 @@ skill-mgr
 
 # npm
 node_modules/
-bin/
+bin/skill-mgr

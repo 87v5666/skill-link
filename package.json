@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "OpenCode skill 链接管理工具 — 从中央仓库浏览、选择、链接 skill",
   "bin": {
-    "skill-mgr": "./bin/skill-mgr"
+    "skill-mgr": "./bin/skill-mgr.js"
   },
   "scripts": {
     "postinstall": "node scripts/install.js",
