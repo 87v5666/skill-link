@@ -80,9 +80,11 @@ jobs:
           node-version: '20'
 
       - name: Publish npm package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
           npm pkg set version="${VERSION}"
-          npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
           npm publish --access public
