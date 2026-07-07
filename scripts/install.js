@@ -69,7 +69,7 @@ async function download(url, dest) {
 async function main() {
   const version = pkg.version;
   const platform = getPlatform();
-  const url = `https://github.com/YOUR_USER/skill-management/releases/download/v${version}/skill-mgr-${platform}`;
+  const url = `https://github.com/87v5666/skill-link/releases/download/v${version}/skill-mgr-${platform}`;
 
   console.log(`📥 正在下载 skill-mgr v${version} (${platform})...`);
 
@@ -82,7 +82,7 @@ async function main() {
     console.log(`   运行: skill-mgr --help`);
   } catch (err) {
     console.error(`❌ 下载失败: ${err.message}`);
-    console.error('   请手动下载: https://github.com/YOUR_USER/skill-management/releases');
+    console.error('   请手动下载: https://github.com/87v5666/skill-link/releases');
     process.exit(1);
   }
 }

@@ -86,6 +86,12 @@ func (m model) renderBrowseView() string {
 		" [Tab]切换面板  [↑↓]导航  [Space]选择  [Enter]预览  [L]链接选中  [D]取消链接  [/]搜索  [Q]退出",
 	)
 
+	// 错误显示
+	if m.err != nil {
+		footer += "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render(
+			fmt.Sprintf("错误: %v", m.err))
+	}
+
 	return fmt.Sprintf("%s\n%s\n%s",
 		header,
 		lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel),

@@ -163,9 +163,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						break
 					}
 				}
-				content, _ := os.ReadFile(filepath.Join(skill.Path, "SKILL.md"))
+				content, err := os.ReadFile(filepath.Join(skill.Path, "SKILL.md"))
+				if err != nil {
+					m.err = err
+					m.previewContent = ""
+				} else {
+					m.previewContent = string(content)
+				}
 				m.previewSkill = &skill
-				m.previewContent = string(content)
 				m.view = previewView
 			} else if m.view == previewView {
 				// 在预览中按 enter 执行链接
@@ -192,8 +197,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				for name := range m.selected {
 					for i, sk := range m.skills {
 						if sk.Name == name {
-							m.linker.Link(sk.Name, sk.Path)
-							m.skills[i].Linked = true
+							if err := m.linker.Link(sk.Name, sk.Path); err != nil {
+								m.err = err
+							} else {
+								m.skills[i].Linked = true
+							}
 							break
 						}
 					}
@@ -206,8 +214,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.view == browseView && m.panelFocus == 1 {
 				for i, sk := range m.skills {
 					if sk.Name == m.cursorName {
-						m.linker.Unlink(sk.Name)
-						m.skills[i].Linked = false
+						if err := m.linker.Unlink(sk.Name); err != nil {
+							m.err = err
+						} else {
+							m.skills[i].Linked = false
+						}
 						break
 					}
 				}

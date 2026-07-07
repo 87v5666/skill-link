@@ -81,12 +81,3 @@ func FindProjectRoot() (string, error) {
 		dir = parent
 	}
 }
-
-// ProjectSkillsDir 返回项目的 skill 链接目录
-func ProjectSkillsDir() (string, error) {
-	root, err := FindProjectRoot()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(root, ".opencode", "skills"), nil
-}

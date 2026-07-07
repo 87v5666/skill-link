@@ -78,7 +78,10 @@ func (s *Scanner) scanDisk() ([]Category, error) {
 // getCategories 返回分类树（带内存缓存，避免重复磁盘 I/O）
 func (s *Scanner) getCategories() ([]Category, error) {
 	if s.scanned {
-		return s.categories, nil
+		// 返回防御性副本，防止调用方修改内部缓存
+		result := make([]Category, len(s.categories))
+		copy(result, s.categories)
+		return result, nil
 	}
 	cats, err := s.scanDisk()
 	if err != nil {
@@ -86,7 +89,10 @@ func (s *Scanner) getCategories() ([]Category, error) {
 	}
 	s.categories = cats
 	s.scanned = true
-	return s.categories, nil
+	// 返回防御性副本
+	result := make([]Category, len(s.categories))
+	copy(result, s.categories)
+	return result, nil
 }
 
 // Scan 扫描仓库目录，返回分类树
