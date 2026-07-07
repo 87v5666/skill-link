@@ -14,6 +14,9 @@ import (
 	"skill-management/internal/tui"
 )
 
+// Set at build time with -ldflags "-X main.version=v0.1.2"
+var version = "dev"
+
 var rootCmd = &cobra.Command{
 	Use:   "skill-mgr",
 	Short: "管理 OpenCode skill 链接的工具",
@@ -179,7 +182,7 @@ var tuiCmd = &cobra.Command{
 	Use:   "tui",
 	Short: "启动 TUI 交互界面浏览/选择 skill",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return tui.Start()
+		return tui.Start(version)
 	},
 }
 
@@ -306,6 +309,8 @@ func init() {
 	pathCmd.AddCommand(pathSetCmd)
 	agentCmd.AddCommand(agentSearchCmd, agentLinkCmd, agentLinkedCmd, agentRemoveCmd)
 	rootCmd.AddCommand(agentCmd)
+
+	rootCmd.Version = version
 }
 
 func main() {

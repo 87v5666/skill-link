@@ -3,7 +3,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "OpenCode skill 链接管理工具 — 从中央仓库浏览、选择、链接 skill",
   "bin": {
     "skill-mgr": "./bin/skill-mgr.js"
@@ -17,7 +17,12 @@
     "type": "git",
     "url": "git+https://github.com/87v5666/skill-link.git"
   },
-  "keywords": ["opencode", "skill", "cli", "tui"],
+  "keywords": [
+    "opencode",
+    "skill",
+    "cli",
+    "tui"
+  ],
   "author": "",
   "license": "MIT",
   "files": [
@@ -29,6 +34,13 @@
   "engines": {
     "node": ">=14"
   },
-  "os": ["darwin", "linux", "win32"],
-  "cpu": ["x64", "arm64"]
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ]
 }

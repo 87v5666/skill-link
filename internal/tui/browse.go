@@ -31,18 +31,35 @@ func (m model) renderBrowseView() string {
 	repoPath, _ := config.Load()
 	header += mutedStyle.Render(fmt.Sprintf("  仓库: %s", repoPath.RepoPath))
 
-	// 左面板：分类列表
-	leftWidth := 20
+	// 左面板：自定义分类列表
+	leftWidth := 24
 	var catLines []string
 	catLines = append(catLines, mutedStyle.Render("分类"))
-	for i, cat := range m.categories {
-		line := fmt.Sprintf("  %s", cat.Name)
-		if m.panelFocus == 0 && i == m.catCursor {
-			line = activeStyle.Render(fmt.Sprintf("  %s", cat.Name))
+
+	// "全部" - always first
+	allLabel := "  📋 全部"
+	if m.panelFocus == 0 && m.catCursor == 0 {
+		catLines = append(catLines, activeStyle.Render(allLabel))
+	} else {
+		catLines = append(catLines, normalStyle.Render(allLabel))
+	}
+
+	// Custom categories
+	for i, catName := range m.customCatNames {
+		idx := i + 1
+		if m.panelFocus == 0 && m.catCursor == idx {
+			catLines = append(catLines, activeStyle.Render(fmt.Sprintf("  %s", catName)))
 		} else {
-			line = normalStyle.Render(fmt.Sprintf("  %s", cat.Name))
+			catLines = append(catLines, normalStyle.Render(fmt.Sprintf("  %s", catName)))
 		}
-		catLines = append(catLines, line)
+	}
+
+	// "新建分类" action
+	newLabel := "  ＋ 新建分类"
+	if m.panelFocus == 0 && m.catCursor == len(m.customCatNames) {
+		catLines = append(catLines, activeStyle.Render(newLabel))
+	} else {
+		catLines = append(catLines, mutedStyle.Render(newLabel))
 	}
 	leftPanel := panelStyle.Width(leftWidth).Height(panelHeight).Render(
 		strings.Join(catLines, "\n"),
@@ -54,7 +71,7 @@ func (m model) renderBrowseView() string {
 		rightWidth = 30
 	}
 
-	// 过滤：按选中分类
+	// 过滤：按自定义分类
 	filteredSkills := m.filteredSkills()
 
 	var skillLines []string
@@ -67,13 +84,21 @@ func (m model) renderBrowseView() string {
 		if m.selected[sk.Name] {
 			prefix = "✓ "
 		}
-		line := fmt.Sprintf("%s %s", prefix, sk.Name)
+
+		// Build line with note
+		note := m.dataStore.GetNote(sk.Name)
+		noteStr := ""
+		if note != "" {
+			noteStr = mutedStyle.Render(fmt.Sprintf(" — %s", note))
+		}
+
+		line := fmt.Sprintf("%s %s%s", prefix, sk.Name, noteStr)
 		if m.panelFocus == 1 && sk.Name == m.cursorName {
-			line = activeStyle.Render(fmt.Sprintf("%s %s", prefix, sk.Name))
+			line = activeStyle.Render(fmt.Sprintf("%s %s%s", prefix, sk.Name, noteStr))
 		} else if sk.Linked {
-			line = linkedStyle.Render(fmt.Sprintf("%s %s", prefix, sk.Name))
+			line = linkedStyle.Render(fmt.Sprintf("%s %s%s", prefix, sk.Name, noteStr))
 		} else {
-			line = normalStyle.Render(fmt.Sprintf("%s %s", prefix, sk.Name))
+			line = normalStyle.Render(fmt.Sprintf("%s %s%s", prefix, sk.Name, noteStr))
 		}
 		skillLines = append(skillLines, line)
 	}
@@ -81,10 +106,10 @@ func (m model) renderBrowseView() string {
 		strings.Join(skillLines, "\n"),
 	)
 
-	// 底部帮助
+	// 底部帮助 + version
 	footer := mutedStyle.Render(
-		" [Tab]切换面板  [↑↓]导航  [Space]选择  [Enter]预览  [L]链接选中  [D]取消链接  [/]搜索  [Q]退出",
-	)
+		" [Tab]切换  [↑↓]导航  [Space]选  [Enter]预览  [L]链接  [D]取消  [/]搜索  [N]分类  [E]备注  [A]分组  [Q]退出",
+	) + mutedStyle.Render(fmt.Sprintf("  v%s", m.version))
 
 	// 错误显示
 	if m.err != nil {
@@ -92,11 +117,66 @@ func (m model) renderBrowseView() string {
 			fmt.Sprintf("错误: %v", m.err))
 	}
 
-	return fmt.Sprintf("%s\n%s\n%s",
+	result := fmt.Sprintf("%s\n%s\n%s",
 		header,
 		lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel),
 		footer,
 	)
+
+	// Input overlay for text entry
+	if m.inputMode != noInput {
+		var inputContent string
+		switch m.inputMode {
+		case addingCategory, editingNote:
+			inputContent = fmt.Sprintf(" %s%s", m.inputPrompt, m.inputBuffer)
+		case addToCategory:
+			catNames := m.dataStore.SortedCategoryNames()
+			var listLines []string
+			listLines = append(listLines, " 选择分类（Enter确认）:")
+			for _, n := range catNames {
+				marker := "  "
+				// Check if skill is in this category
+				inCat := false
+				for _, sn := range m.dataStore.Categories[n] {
+					if sn == m.cursorName {
+						inCat = true
+						break
+					}
+				}
+				status := "[+]"
+				if inCat {
+					status = "[-]"
+				}
+				marker = fmt.Sprintf("  %s %s", status, n)
+				listLines = append(listLines, marker)
+			}
+			// Highlight selected line
+			if m.catSelectCursor >= 0 && m.catSelectCursor < len(catNames) {
+				selName := catNames[m.catSelectCursor]
+				inCat := false
+				for _, sn := range m.dataStore.Categories[selName] {
+					if sn == m.cursorName {
+						inCat = true
+						break
+					}
+				}
+				status := "[+]"
+				if inCat {
+					status = "[-]"
+				}
+				listLines[m.catSelectCursor+1] = fmt.Sprintf("▸ %s %s", status, selName)
+			}
+			inputContent = strings.Join(listLines, "\n")
+		}
+		// Overlay
+		overlay := "\n" + lipgloss.NewStyle().
+			Background(lipgloss.Color("#333333")).
+			Padding(0, 1).
+			Render(inputContent)
+		result += overlay
+	}
+
+	return result
 }
 
 func (m model) View() string {

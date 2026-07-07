@@ -19,8 +19,9 @@ func (m model) renderPreviewView() string {
 	header := previewTitleStyle.Render(fmt.Sprintf(" 📖 %s", m.previewSkill.Name))
 	header += fmt.Sprintf("  [%s]", m.previewSkill.Category)
 
-	info := fmt.Sprintf("路径: %s\n已链接: %v\n",
-		m.previewSkill.Path, m.previewSkill.Linked)
+	info := fmt.Sprintf("路径: %s\n已链接: %v\n备注: %s\n",
+		m.previewSkill.Path, m.previewSkill.Linked,
+		m.dataStore.GetNote(m.previewSkill.Name))
 
 	body := previewBodyStyle.Render(m.previewContent)
 

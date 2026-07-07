@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"skill-management/internal/config"
+	"skill-management/internal/data"
 	"skill-management/internal/linker"
 	"skill-management/internal/repo"
 )
@@ -17,6 +18,15 @@ type viewType int
 const (
 	browseView viewType = iota
 	previewView
+)
+
+type textInputMode int
+
+const (
+	noInput textInputMode = iota
+	addingCategory
+	editingNote
+	addToCategory
 )
 
 type model struct {
@@ -44,9 +54,23 @@ type model struct {
 	searching   bool
 
 	err error
+
+	// 数据持久化
+	dataStore     *data.Store
+	version       string
+	customCatNames []string // sorted custom category names for display
+
+	// 文本输入模式
+	inputMode    textInputMode
+	inputBuffer  string
+	inputPrompt  string
+	inputTitle   string
+
+	// 选择分类模式
+	catSelectCursor int
 }
 
-func Start() error {
+func Start(version string) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -77,13 +101,21 @@ func Start() error {
 		}
 	}
 
+	ds, err := data.Load()
+	if err != nil {
+		return fmt.Errorf("加载数据失败: %w", err)
+	}
+
 	m := model{
-		view:       browseView,
-		categories: categories,
-		skills:     allSkills,
-		linker:     l,
-		selected:   make(map[string]bool),
-		panelFocus: 1, // 默认聚焦 skill 列表
+		view:           browseView,
+		categories:     categories,
+		skills:         allSkills,
+		linker:         l,
+		selected:       make(map[string]bool),
+		panelFocus:     1, // 默认聚焦 skill 列表
+		dataStore:      ds,
+		version:        version,
+		customCatNames: ds.SortedCategoryNames(),
 	}
 	if len(allSkills) > 0 {
 		m.cursorName = allSkills[0].Name
@@ -107,6 +139,74 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// 文本输入模式优先处理
+		if m.inputMode != noInput {
+			switch msg.String() {
+			case "enter":
+				if m.inputMode == addingCategory {
+					if m.inputBuffer != "" {
+						m.dataStore.CreateCategory(m.inputBuffer)
+						m.customCatNames = m.dataStore.SortedCategoryNames()
+					}
+					m.inputMode = noInput
+				} else if m.inputMode == editingNote {
+					m.dataStore.SetNote(m.cursorName, m.inputBuffer)
+					m.inputMode = noInput
+				} else if m.inputMode == addToCategory {
+					catNames := m.dataStore.SortedCategoryNames()
+					if m.catSelectCursor >= 0 && m.catSelectCursor < len(catNames) {
+						catName := catNames[m.catSelectCursor]
+						// Toggle: if already in category, remove; else add
+						found := false
+						for _, n := range m.dataStore.Categories[catName] {
+							if n == m.cursorName {
+								found = true
+								break
+							}
+						}
+						if found {
+							m.dataStore.RemoveSkillFromCategory(catName, m.cursorName)
+						} else {
+							m.dataStore.AddSkillToCategory(catName, m.cursorName)
+						}
+					}
+					m.inputMode = noInput
+				}
+				return m, nil
+
+			case "esc":
+				m.inputMode = noInput
+				m.inputBuffer = ""
+				return m, nil
+
+			case "backspace":
+				if len(m.inputBuffer) > 0 {
+					m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
+				}
+				return m, nil
+
+			default:
+				if m.inputMode == addToCategory {
+					switch msg.String() {
+					case "up", "k":
+						if m.catSelectCursor > 0 {
+							m.catSelectCursor--
+						}
+					case "down", "j":
+						catNames := m.dataStore.SortedCategoryNames()
+						if m.catSelectCursor < len(catNames)-1 {
+							m.catSelectCursor++
+						}
+					}
+					return m, nil
+				}
+				if len(msg.String()) == 1 {
+					m.inputBuffer += msg.String()
+				}
+				return m, nil
+			}
+		}
+
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
@@ -143,7 +243,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			if m.view == browseView && m.panelFocus == 0 {
-				if m.catCursor < len(m.categories)-1 {
+				if m.catCursor < len(m.customCatNames) {
 					m.catCursor++
 				}
 			}
@@ -224,6 +324,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
+		case "n":
+			// New category (only when not in input mode)
+			if m.view == browseView {
+				m.inputMode = addingCategory
+				m.inputBuffer = ""
+				m.inputPrompt = "输入分类名称: "
+				m.inputTitle = "新建分类"
+			}
+
+		case "e":
+			// Edit note for current skill
+			if m.view == browseView && m.panelFocus == 1 {
+				m.inputMode = editingNote
+				m.inputBuffer = m.dataStore.GetNote(m.cursorName)
+				m.inputPrompt = fmt.Sprintf("备注 [%s]: ", m.cursorName)
+				m.inputTitle = "编辑备注"
+			}
+
+		case "a":
+			// Toggle add/remove current skill from category
+			if m.view == browseView && m.panelFocus == 1 {
+				m.inputMode = addToCategory
+				m.catSelectCursor = 0
+				m.inputTitle = "选择分类"
+			}
+
 		case "esc":
 			if m.view == previewView {
 				m.view = browseView
@@ -256,18 +382,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) filteredSkills() []repo.Skill {
-	filtered := m.skills
-	if m.panelFocus == 0 && m.catCursor < len(m.categories) {
-		catName := m.categories[m.catCursor].Name
+	// "全部" selected (catCursor == 0 or panelFocus not on categories)
+	if m.catCursor == 0 || m.panelFocus != 0 {
+		return m.skills
+	}
+
+	// Custom category selected
+	idx := m.catCursor - 1
+	if idx >= 0 && idx < len(m.customCatNames) {
+		catName := m.customCatNames[idx]
+		skillNames := m.dataStore.Categories[catName]
 		var fs []repo.Skill
 		for _, sk := range m.skills {
-			if sk.Category == catName {
-				fs = append(fs, sk)
+			for _, n := range skillNames {
+				if sk.Name == n {
+					fs = append(fs, sk)
+					break
+				}
 			}
 		}
-		if len(fs) > 0 {
-			filtered = fs
-		}
+		return fs
 	}
-	return filtered
+
+	return m.skills
 }

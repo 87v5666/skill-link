@@ -3,23 +3,27 @@ package tui
 import (
 	"testing"
 
+	"skill-management/internal/data"
 	"skill-management/internal/repo"
 )
 
-func TestFilteredSkills_ByCategory(t *testing.T) {
+func TestFilteredSkills_ByCustomCategory(t *testing.T) {
 	skills := []repo.Skill{
 		{Name: "react", Category: "frontend"},
 		{Name: "css", Category: "frontend"},
 		{Name: "api", Category: "backend"},
 	}
-	m := model{
-		skills:     skills,
-		panelFocus: 0,
-		catCursor:  0,
-		categories: []repo.Category{
-			{Name: "frontend", Skills: skills[:2]},
-			{Name: "backend", Skills: skills[2:]},
+	ds := &data.Store{
+		Categories: map[string][]string{
+			"frontend": {"react", "css"},
 		},
+	}
+	m := model{
+		skills:         skills,
+		dataStore:      ds,
+		customCatNames: []string{"frontend"},
+		panelFocus:     0,
+		catCursor:      1, // first custom category
 	}
 
 	result := m.filteredSkills()
@@ -42,10 +46,6 @@ func TestFilteredSkills_AllSkills(t *testing.T) {
 	m := model{
 		skills:     skills,
 		panelFocus: 1, // skill panel focused = no filter
-		categories: []repo.Category{
-			{Name: "frontend", Skills: skills[:1]},
-			{Name: "backend", Skills: skills[1:]},
-		},
 	}
 
 	result := m.filteredSkills()
@@ -58,16 +58,18 @@ func TestFilteredSkills_EmptyCategory(t *testing.T) {
 	skills := []repo.Skill{
 		{Name: "react", Category: "frontend"},
 	}
+	ds := &data.Store{
+		Categories: map[string][]string{},
+	}
 	m := model{
-		skills:     skills,
-		panelFocus: 0,
-		catCursor:  1, // second category (backend) is empty or doesn't exist
-		categories: []repo.Category{
-			{Name: "frontend", Skills: skills},
-		},
+		skills:         skills,
+		dataStore:      ds,
+		customCatNames: []string{},
+		panelFocus:     0,
+		catCursor:      1, // no custom categories, so falls back to all
 	}
 
-	// catCursor=1 is out of range, so filteredSkills should return all skills
+	// catCursor=1 with no custom categories -> return all skills
 	result := m.filteredSkills()
 	if len(result) != 1 {
 		t.Fatalf("expected 1 skill (fallback to all), got %d", len(result))
@@ -82,7 +84,6 @@ func TestFilteredSkills_NoCategories(t *testing.T) {
 		skills:     skills,
 		panelFocus: 0,
 		catCursor:  0,
-		categories: nil,
 	}
 
 	result := m.filteredSkills()
@@ -93,12 +94,9 @@ func TestFilteredSkills_NoCategories(t *testing.T) {
 
 func TestFilteredSkills_EmptySkills(t *testing.T) {
 	m := model{
-		skills:     nil,
+		skills:    nil,
 		panelFocus: 0,
 		catCursor:  0,
-		categories: []repo.Category{
-			{Name: "frontend", Skills: nil},
-		},
 	}
 
 	result := m.filteredSkills()
