@@ -6,7 +6,7 @@
 
 ## English
 
-**skill-mgr** is a CLI tool for managing OpenCode skill symlinks. Browse, select, and link skills from a central repository to your project's `.opencode/skills/` directory.
+**skill-mgr** is a CLI tool for managing skill files across projects. Maintain a central skill repository and link only the skills each project needs — reducing AI context pressure and keeping skills organized.
 
 ### Features
 
@@ -14,7 +14,7 @@
 - 🔗 **Symlink management** — Link/unlink skills to your project
 - 📂 **Custom categories** — Organize skills into your own categories (a skill can belong to multiple categories)
 - 📝 **Skill notes** — Add personal notes to any skill
-- 🎯 **Agent mode** — JSON output for OpenCode `/slink` integration
+- 🎯 **Per-project management** — Each project gets only the skills it needs, reducing context overhead
 - 🏷️ **Flat & hierarchical repos** — Supports both `category/skill/` and `skill/` directory structures
 
 ### Installation
@@ -116,24 +116,6 @@ skills-repo/
 | `/` | Search skills |
 | `Q` / `Ctrl+C` | Quit |
 
-### OpenCode Integration
-
-Add to your project's `.opencode/agents/slink.json`:
-
-```json
-{
-  "name": "slink",
-  "command": "/slink",
-  "handler": {
-    "type": "shell",
-    "command": "skill-mgr",
-    "args": ["agent"]
-  },
-  "instructions": "Manage skill links. Natural language examples:\n- 'add react skill' → skill-mgr agent link react\n- 'list skills' → skill-mgr agent linked\n- 'remove api-design' → skill-mgr agent remove api-design\n- 'open TUI' → skill-mgr tui\nFormat JSON results for the user.",
-  "permissions": ["read", "write"]
-}
-```
-
 ### Development
 
 ```bash
@@ -171,7 +153,7 @@ MIT
 
 ## Chinese
 
-**skill-mgr** 是 OpenCode 的 skill 链接管理工具。从中央仓库浏览、选择、链接 skill 到当前项目的 `.opencode/skills/` 目录。
+**skill-mgr** 是 skill 链接管理工具。统一管理 skill 仓库，按需为每个项目添加所需的 skill，减小 AI 上下文压力。
 
 ### 功能
 
@@ -179,7 +161,7 @@ MIT
 - 🔗 **软链接管理** — 链接/取消链接 skill 到项目
 - 📂 **自定义分类** — 创建自己的分类管理 skill（一个 skill 可属于多个分类）
 - 📝 **skill 备注** — 为任何 skill 添加个人备注
-- 🎯 **Agent 模式** — JSON 输出，供 OpenCode 的 `/slink` 指令使用
+- 🎯 **按需管理** — 每个项目只链接需要的 skill，减小上下文压力
 - 🏷️ **平面和分层结构** — 同时支持 `分类/skill/` 和 `skill/` 两种目录结构
 
 ### 安装
@@ -280,24 +262,6 @@ skills-repo/
 | `E` | 编辑当前 skill 的备注 |
 | `/` | 搜索 skill |
 | `Q` / `Ctrl+C` | 退出 |
-
-### OpenCode 集成
-
-在项目的 `.opencode/agents/slink.json` 中注册 agent：
-
-```json
-{
-  "name": "slink",
-  "command": "/slink",
-  "handler": {
-    "type": "shell",
-    "command": "skill-mgr",
-    "args": ["agent"]
-  },
-  "instructions": "管理 skill 链接。自然语言示例:\n- '添加 react skill' → skill-mgr agent link react\n- '列出 skill' → skill-mgr agent linked\n- '删除 api-design' → skill-mgr agent remove api-design\n- '打开 TUI' → skill-mgr tui\n将 JSON 结果格式化后回复用户。",
-  "permissions": ["read", "write"]
-}
-```
 
 ### 开发
 
