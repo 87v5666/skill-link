@@ -27,6 +27,7 @@ const (
 	addingCategory
 	editingNote
 	addToCategory
+	editingCategoryName
 )
 
 type model struct {
@@ -69,6 +70,8 @@ type model struct {
 
 	// 选择分类模式
 	catSelectCursor int
+
+	renamingCategory string // 正在重命名的分类名
 }
 
 func Start(version string) error {
@@ -172,10 +175,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 					}
 					m.inputMode = noInput
+				} else if m.inputMode == editingCategoryName {
+					if m.inputBuffer != "" && m.inputBuffer != m.renamingCategory {
+						m.dataStore.RenameCategory(m.renamingCategory, m.inputBuffer)
+						m.customCatNames = m.dataStore.SortedCategoryNames()
+					}
+					m.renamingCategory = ""
+					m.inputMode = noInput
 				}
 				return m, nil
-
-			case "esc":
 				m.inputMode = noInput
 				m.inputBuffer = ""
 				return m, nil
@@ -363,6 +371,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.inputMode = addToCategory
 				m.catSelectCursor = 0
 				m.inputTitle = "选择分类"
+			}
+
+		case "x":
+			// Delete category (when on category panel, on a custom category)
+			if m.view == browseView && m.panelFocus == 0 && m.catCursor > 0 && m.catCursor <= len(m.customCatNames) {
+				catName := m.customCatNames[m.catCursor-1]
+				m.dataStore.DeleteCategory(catName)
+				m.customCatNames = m.dataStore.SortedCategoryNames()
+				if m.catCursor > len(m.customCatNames) {
+					m.catCursor = len(m.customCatNames)
+				}
+				m.selectedCategoryIdx = m.catCursor
+			}
+
+		case "r":
+			// Rename category (when on category panel, on a custom category)
+			if m.view == browseView && m.panelFocus == 0 && m.catCursor > 0 && m.catCursor <= len(m.customCatNames) {
+				m.renamingCategory = m.customCatNames[m.catCursor-1]
+				m.inputMode = editingCategoryName
+				m.inputBuffer = m.renamingCategory
+				m.inputPrompt = fmt.Sprintf("重命名分类 [%s] → ", m.renamingCategory)
+				m.inputTitle = "重命名分类"
 			}
 
 		case "esc":

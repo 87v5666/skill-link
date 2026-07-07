@@ -2,6 +2,7 @@ package data
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -111,6 +112,30 @@ func TestSortedCategoryNames(t *testing.T) {
 	}
 	if names[0] != "a" || names[1] != "m" || names[2] != "z" {
 		t.Fatalf("expected sorted [a m z], got %v", names)
+	}
+}
+
+func TestCreateAndRenameCategory(t *testing.T) {
+	tmpDir := t.TempDir()
+	origStorePath := storePath
+	storePath = func() string { return filepath.Join(tmpDir, "data.json") }
+	defer func() { storePath = origStorePath }()
+
+	s, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+	if err := s.CreateCategory("旧名"); err != nil {
+		t.Fatalf("CreateCategory failed: %v", err)
+	}
+	if err := s.RenameCategory("旧名", "新名"); err != nil {
+		t.Fatalf("RenameCategory failed: %v", err)
+	}
+	if _, ok := s.Categories["旧名"]; ok {
+		t.Fatal("旧名 should not exist after rename")
+	}
+	if _, ok := s.Categories["新名"]; !ok {
+		t.Fatal("新名 should exist after rename")
 	}
 }
 

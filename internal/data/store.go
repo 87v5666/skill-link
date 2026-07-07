@@ -14,7 +14,7 @@ type Store struct {
 	Notes      map[string]string   `json:"notes"`       // skill 名称 -> 备注
 }
 
-func storePath() string {
+var storePath = func() string {
 	home, _ := os.UserHomeDir()
 	dir := filepath.Join(home, ".config", "slink")
 	return filepath.Join(dir, "data.json")
@@ -64,6 +64,22 @@ func (s *Store) CreateCategory(name string) error {
 
 func (s *Store) DeleteCategory(name string) error {
 	delete(s.Categories, name)
+	return Save(s)
+}
+
+func (s *Store) RenameCategory(oldName, newName string) error {
+	if newName == "" {
+		return fmt.Errorf("分类名不能为空")
+	}
+	if _, ok := s.Categories[newName]; ok {
+		return fmt.Errorf("分类 %q 已存在", newName)
+	}
+	skills := s.Categories[oldName]
+	if skills == nil {
+		return fmt.Errorf("分类 %q 不存在", oldName)
+	}
+	delete(s.Categories, oldName)
+	s.Categories[newName] = skills
 	return Save(s)
 }
 
