@@ -113,3 +113,84 @@ func TestScanner_SKILL_Description(t *testing.T) {
 		t.Fatal("期望从 SKILL.md 提取描述")
 	}
 }
+
+// createFlatTestRepo 创建扁平结构的测试仓库（每级目录直接是 skill）
+func createFlatTestRepo(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	// docx/  — 是 skill，内含 SKILL.md + scripts/ 子目录
+	docxDir := filepath.Join(dir, "docx")
+	os.MkdirAll(docxDir, 0755)
+	os.WriteFile(filepath.Join(docxDir, "SKILL.md"), []byte("# Docx\n\nWord document generation"), 0644)
+	os.MkdirAll(filepath.Join(docxDir, "scripts"), 0755) // 子目录，不含 SKILL.md
+
+	// grill-me/ — 是 skill
+	os.MkdirAll(filepath.Join(dir, "grill-me"), 0755)
+	os.WriteFile(filepath.Join(dir, "grill-me", "SKILL.md"), []byte("# Grill Me\n\nGrilling interviews"), 0644)
+
+	return dir
+}
+
+func TestScanner_FlatStructure(t *testing.T) {
+	repoDir := createFlatTestRepo(t)
+	s := NewScanner(repoDir)
+	categories, err := s.Scan()
+	if err != nil {
+		t.Fatalf("Scan() 失败: %v", err)
+	}
+
+	// 应该有一个"未分类"组，包含 2 个 skill
+	if len(categories) != 1 {
+		t.Fatalf("期望 1 个未分类组，实际: %d 个分类", len(categories))
+	}
+	if categories[0].Name != "未分类" {
+		t.Fatalf("期望组名「未分类」，实际: %s", categories[0].Name)
+	}
+	if len(categories[0].Skills) != 2 {
+		t.Fatalf("期望 2 个 skill，实际: %d", len(categories[0].Skills))
+	}
+
+	// 检查 scripts/ 没有被误认为 skill
+	for _, sk := range categories[0].Skills {
+		if sk.Name == "scripts" {
+			t.Fatal("scripts/ 不应被识别为 skill")
+		}
+	}
+}
+
+func TestScanner_MixedStructure(t *testing.T) {
+	// 混合结构：既有扁平 skill，也有分层的分类
+	dir := t.TempDir()
+
+	// 扁平：docx/（含 SKILL.md + scripts/）
+	os.MkdirAll(filepath.Join(dir, "docx"), 0755)
+	os.WriteFile(filepath.Join(dir, "docx", "SKILL.md"), []byte("# Docx"), 0644)
+	os.MkdirAll(filepath.Join(dir, "docx", "scripts"), 0755)
+
+	// 分层：frontend/react-component/ + frontend/css-layout/
+	os.MkdirAll(filepath.Join(dir, "frontend", "react-component"), 0755)
+	os.WriteFile(filepath.Join(dir, "frontend", "react-component", "SKILL.md"), []byte("# React"), 0644)
+	os.MkdirAll(filepath.Join(dir, "frontend", "css-layout"), 0755)
+	os.WriteFile(filepath.Join(dir, "frontend", "css-layout", "SKILL.md"), []byte("# CSS"), 0644)
+
+	s := NewScanner(dir)
+	categories, err := s.Scan()
+	if err != nil {
+		t.Fatalf("Scan() 失败: %v", err)
+	}
+
+	// 应该有 2 个组：未分类（docx）+ frontend（react, css）
+	if len(categories) != 2 {
+		t.Fatalf("期望 2 个分组，实际: %d", len(categories))
+	}
+
+	// 第一个是未分类（docx）
+	if categories[0].Name != "未分类" || len(categories[0].Skills) != 1 {
+		t.Fatalf("未分类组异常: name=%s, skills=%d", categories[0].Name, len(categories[0].Skills))
+	}
+
+	// 第二个是 frontend（react, css）
+	if categories[1].Name != "frontend" || len(categories[1].Skills) != 2 {
+		t.Fatalf("frontend 组异常: name=%s, skills=%d", categories[1].Name, len(categories[1].Skills))
+	}
+}

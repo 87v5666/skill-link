@@ -36,41 +36,72 @@ func (s *Scanner) cachePath() string {
 	return filepath.Join(config.ConfigDir(), "cache.json")
 }
 
+// hasSKILLMD 检查目录下是否包含 SKILL.md 文件
+func hasSKILLMD(dir string) bool {
+	_, err := os.Stat(filepath.Join(dir, "SKILL.md"))
+	return err == nil
+}
+
 // scanDisk 扫描仓库目录，返回分类树（实际的磁盘 I/O）
+// 支持两种目录结构：
+//   扁平结构：每级目录直接是 skill（含 SKILL.md）
+//   分层结构：分类 → skill 子目录 → SKILL.md
 func (s *Scanner) scanDisk() ([]Category, error) {
 	entries, err := os.ReadDir(s.repoPath)
 	if err != nil {
 		return nil, fmt.Errorf("读取仓库目录失败: %w", err)
 	}
 
+	var uncategorized []Skill
 	var categories []Category
 	for _, entry := range entries {
 		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
 			continue
 		}
 		catPath := filepath.Join(s.repoPath, entry.Name())
-		cat := Category{Name: entry.Name()}
 
+		if hasSKILLMD(catPath) {
+			// 扁平模式：此目录本身就是一个 skill
+			uncategorized = append(uncategorized, Skill{
+				Name:        entry.Name(),
+				Category:    "",
+				Path:        catPath,
+				Description: readDescription(catPath),
+			})
+			continue
+		}
+
+		// 分层模式：按分类 → skill 子目录扫描
 		skillDirs, err := os.ReadDir(catPath)
 		if err != nil {
 			continue
 		}
+		cat := Category{Name: entry.Name()}
 		for _, sd := range skillDirs {
 			if !sd.IsDir() || strings.HasPrefix(sd.Name(), ".") {
 				continue
 			}
 			skillPath := filepath.Join(catPath, sd.Name())
-			skill := Skill{
-				Name:     sd.Name(),
-				Category: entry.Name(),
-				Path:     skillPath,
+			if !hasSKILLMD(skillPath) {
+				continue
 			}
-			skill.Description = readDescription(skillPath)
-			cat.Skills = append(cat.Skills, skill)
+			cat.Skills = append(cat.Skills, Skill{
+				Name:        sd.Name(),
+				Category:    entry.Name(),
+				Path:        skillPath,
+				Description: readDescription(skillPath),
+			})
 		}
 		if len(cat.Skills) > 0 {
 			categories = append(categories, cat)
 		}
+	}
+	// 把扁平结构的 skill 放到"未分类"组
+	if len(uncategorized) > 0 {
+		categories = append([]Category{{
+			Name:   "未分类",
+			Skills: uncategorized,
+		}}, categories...)
 	}
 	return categories, nil
 }
