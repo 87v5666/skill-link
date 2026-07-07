@@ -39,6 +39,7 @@ type model struct {
 	cursorName string          // 当前选中 skill 名称
 	panelFocus int             // 0=分类面板, 1=skill 面板
 	catCursor  int             // 分类面板光标
+	selectedCategoryIdx int    // 0=全部, 1+=自定义分类索引（独立于 panelFocus）
 	selected   map[string]bool // 已选 skill 名称
 
 	// 预览视图状态
@@ -200,8 +201,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					return m, nil
 				}
-				if len(msg.String()) == 1 {
-					m.inputBuffer += msg.String()
+				// Accept Chinese and other multi-byte characters
+				if msg.Type == tea.KeyRunes {
+					m.inputBuffer += string(msg.Runes)
 				}
 				return m, nil
 			}
@@ -230,6 +232,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.catCursor > 0 {
 					m.catCursor--
 				}
+				if m.catCursor <= len(m.customCatNames) {
+					m.selectedCategoryIdx = m.catCursor
+				}
 			}
 
 		case "down", "j":
@@ -243,8 +248,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			if m.view == browseView && m.panelFocus == 0 {
-				if m.catCursor < len(m.customCatNames) {
+				if m.catCursor < len(m.customCatNames)+1 {
 					m.catCursor++
+				}
+				if m.catCursor <= len(m.customCatNames) {
+					m.selectedCategoryIdx = m.catCursor
 				}
 			}
 
@@ -254,6 +262,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "enter":
+			if m.view == browseView && m.panelFocus == 0 && m.catCursor == len(m.customCatNames) {
+				m.inputMode = addingCategory
+				m.inputBuffer = ""
+				m.inputPrompt = "输入分类名称: "
+				m.inputTitle = "新建分类"
+				return m, nil
+			}
 			if m.view == browseView && m.panelFocus == 1 {
 				// 进入预览
 				var skill repo.Skill
@@ -382,13 +397,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) filteredSkills() []repo.Skill {
-	// "全部" selected (catCursor == 0 or panelFocus not on categories)
-	if m.catCursor == 0 || m.panelFocus != 0 {
+	// 使用 selectedCategoryIdx 追踪选中的分类，不受 panelFocus 影响
+	if m.selectedCategoryIdx <= 0 {
 		return m.skills
 	}
-
-	// Custom category selected
-	idx := m.catCursor - 1
+	idx := m.selectedCategoryIdx - 1
 	if idx >= 0 && idx < len(m.customCatNames) {
 		catName := m.customCatNames[idx]
 		skillNames := m.dataStore.Categories[catName]

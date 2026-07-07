@@ -19,11 +19,11 @@ func TestFilteredSkills_ByCustomCategory(t *testing.T) {
 		},
 	}
 	m := model{
-		skills:         skills,
-		dataStore:      ds,
-		customCatNames: []string{"frontend"},
-		panelFocus:     0,
-		catCursor:      1, // first custom category
+		skills:             skills,
+		dataStore:          ds,
+		customCatNames:     []string{"frontend"},
+		catCursor:          1,
+		selectedCategoryIdx: 1,
 	}
 
 	result := m.filteredSkills()
@@ -44,8 +44,8 @@ func TestFilteredSkills_AllSkills(t *testing.T) {
 		{Name: "api", Category: "backend"},
 	}
 	m := model{
-		skills:     skills,
-		panelFocus: 1, // skill panel focused = no filter
+		skills:             skills,
+		selectedCategoryIdx: 0, // 全部
 	}
 
 	result := m.filteredSkills()
@@ -62,14 +62,14 @@ func TestFilteredSkills_EmptyCategory(t *testing.T) {
 		Categories: map[string][]string{},
 	}
 	m := model{
-		skills:         skills,
-		dataStore:      ds,
-		customCatNames: []string{},
-		panelFocus:     0,
-		catCursor:      1, // no custom categories, so falls back to all
+		skills:             skills,
+		dataStore:          ds,
+		customCatNames:     []string{},
+		catCursor:          1,
+		selectedCategoryIdx: 1, // no custom categories, so falls back to all
 	}
 
-	// catCursor=1 with no custom categories -> return all skills
+	// selectedCategoryIdx=1 with no custom categories -> return all skills
 	result := m.filteredSkills()
 	if len(result) != 1 {
 		t.Fatalf("expected 1 skill (fallback to all), got %d", len(result))
@@ -81,9 +81,9 @@ func TestFilteredSkills_NoCategories(t *testing.T) {
 		{Name: "react", Category: "frontend"},
 	}
 	m := model{
-		skills:     skills,
-		panelFocus: 0,
-		catCursor:  0,
+		skills:             skills,
+		catCursor:          0,
+		selectedCategoryIdx: 0,
 	}
 
 	result := m.filteredSkills()
@@ -94,9 +94,9 @@ func TestFilteredSkills_NoCategories(t *testing.T) {
 
 func TestFilteredSkills_EmptySkills(t *testing.T) {
 	m := model{
-		skills:    nil,
-		panelFocus: 0,
-		catCursor:  0,
+		skills:             nil,
+		catCursor:          0,
+		selectedCategoryIdx: 0,
 	}
 
 	result := m.filteredSkills()

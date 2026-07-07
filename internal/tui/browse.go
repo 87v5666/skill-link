@@ -109,7 +109,10 @@ func (m model) renderBrowseView() string {
 	// 底部帮助 + version
 	footer := mutedStyle.Render(
 		" [Tab]切换  [↑↓]导航  [Space]选  [Enter]预览  [L]链接  [D]取消  [/]搜索  [N]分类  [E]备注  [A]分组  [Q]退出",
-	) + mutedStyle.Render(fmt.Sprintf("  v%s", m.version))
+	)
+	if m.version != "dev" {
+		footer += mutedStyle.Render(fmt.Sprintf("  v%s", m.version))
+	}
 
 	// 错误显示
 	if m.err != nil {
