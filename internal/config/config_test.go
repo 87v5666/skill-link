@@ -71,8 +71,11 @@ func TestFindProjectRoot_NotFound(t *testing.T) {
 	getwd = func() (string, error) { return tmpDir, nil }
 	defer func() { getwd = origGetwd }()
 
-	_, err := FindProjectRoot()
-	if err == nil {
-		t.Fatal("期望错误，但返回了 nil")
+	root, err := FindProjectRoot()
+	if err != nil {
+		t.Fatalf("FindProjectRoot() 不应返回错误，got: %v", err)
+	}
+	if root != tmpDir {
+		t.Fatalf("期望 root=%s, 实际: %s", tmpDir, root)
 	}
 }

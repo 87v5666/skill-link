@@ -65,18 +65,21 @@ func Save(cfg *Config) error {
 var getwd = os.Getwd
 
 // FindProjectRoot 从当前目录向上查找包含 .opencode/ 的项目根目录
+// 如果找不到 .opencode/，则以当前目录作为项目根目录
 func FindProjectRoot() (string, error) {
 	dir, err := getwd()
 	if err != nil {
 		return "", err
 	}
+	start := dir
 	for {
 		if _, err := os.Stat(filepath.Join(dir, ".opencode")); err == nil {
 			return dir, nil
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return "", fmt.Errorf("未找到 .opencode/ 目录（不在 OpenCode 项目中）")
+			// 没找到 .opencode/，以当前目录作为项目根目录
+			return start, nil
 		}
 		dir = parent
 	}
