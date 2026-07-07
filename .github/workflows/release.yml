@@ -83,8 +83,18 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          # 调试：检查 token 是否可用
+          echo "Token length: ${#NODE_AUTH_TOKEN}"
+          echo "${NODE_AUTH_TOKEN}" | cut -c1-4
+          
+          # 设置 npm 认证
+          npm config set //registry.npmjs.org/:_authToken "${NODE_AUTH_TOKEN}" --location=project
+          
+          # 测试认证是否生效
+          npm whoami 2>&1 || echo "whoami 失败"
+          
+          # 发布
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
           npm pkg set version="${VERSION}"
-          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
           npm publish --access public
